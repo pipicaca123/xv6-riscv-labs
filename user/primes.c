@@ -37,10 +37,6 @@ int main(int argc, char *argv[]){
             read(p_fd[0], buf, buf_len  * sizeof(int));
             close(p_fd[0]);
             seed = buf[0];
-            // printf("buf_len=%d, rv=%d\n",buf_len);
-            // for(int i=0;i<buf_len;i++)
-            //     printf("%d, ", buf[i]);
-            // printf("\n");
         }
 
     }
