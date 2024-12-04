@@ -1,0 +1,35 @@
+Q1: Looking at the backtrace output, which function called syscall?
+Ans1: usertrap() called syscall()
+#0  syscall () at kernel/syscall.c:133
+#1  0x0000000080001d72 in usertrap () at kernel/trap.c:67
+#2  0x0505050505050505 in ?? ()
+
+
+Q2: What is the value of p->trapframe->a7 and what does that value represent? (Hint: look user/initcode.S, the first user program xv6 starts.)
+Ans2: a7 -> 0x7, use command p /x *p->trapframe
+
+Q3: What was the previous mode that the CPU was in?
+Ans3: $6 = 0x22, see $sstatus bits meaning, it is in machine mode
+
+Q4: Write down the assembly instruction the kernel is panicing at. Which register corresponds to the variable num?
+Ans4: 1. lw a3, 0(zero), from this instruction, a3 represent num variable. 
+      2. Using command "p &num".Shows "From cmd Address requested for identifier "num" which is in register $a3".
+
+Q5: Why does the kernel crash? Hint: look at figure 3-3 in the text; is address 0 mapped in the kernel address space? Is that confirmed by the value in scause above? (See description of scause in RISC-V privileged instructions)
+Ans5: "p $scause" get 13, indicate "Load page fault" trap. (see in RISC-V privileged instructions, table 4.2)
+      Thus, address 0 mapped in the kernel address space? The answer is no. 
+
+Q6: What is the name of the binary that was running when the kernel paniced? What is its process id (pid)?
+Ans6: get directly from "p *p" command, process name="initcode\000\000\000\000\000\000\000", PID=1
+        (gdb) p *p
+        $3 = {lock = {locked = 0, name = 0x800081b8 "proc", cpu = 0x0}, 
+        state = RUNNING, chan = 0x0, killed = 0, xstate = 0, pid = 1, 
+        parent = 0x0, kstack = 274877894656, sz = 4096, 
+        pagetable = 0x87f73000, trapframe = 0x87f74000, context = {
+            ra = 2147488962, sp = 274877898352, s0 = 274877898400, 
+            s1 = 2147519856, s2 = 2147518784, s3 = 1, s4 = 274877898448, 
+            s5 = 2147544056, s6 = 3, s7 = 2147588624, s8 = 1, s9 = 2147588920, 
+            s10 = 4, s11 = 0}, ofile = {0x0 <repeats 16 times>}, 
+        cwd = 0x80016e80 <itable+24>, 
+        name = "initcode\000\000\000\000\000\000\000"}
+

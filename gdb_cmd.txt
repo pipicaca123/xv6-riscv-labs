@@ -1,0 +1,8 @@
+# reference - setup: https://blog.csdn.net/baidu_41944641/article/details/137468018
+# reference - debug: https://blog.csdn.net/yihuajack/article/details/116571913
+# reference some items https://chatgpt.com/share/675025ac-55cc-800b-89fd-500d9ea796f3
+# start gdb
+gdb-multiarch 
+target remote localhost:<gdb-port-num>
+
+
