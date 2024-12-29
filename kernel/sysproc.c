@@ -69,12 +69,36 @@ sys_sleep(void)
   return 0;
 }
 
-
 #ifdef LAB_PGTBL
 int
 sys_pgaccess(void)
 {
-  // lab pgtbl: your code here.
+  uint64 baseaddr, abits_addr;
+  int pgt_len, rv;
+  unsigned int abits = 0x00;
+  struct proc *cur_proc = myproc();
+  argaddr(0, &baseaddr);
+  argaddr(2, &abits_addr);
+  argint(1, &pgt_len);
+
+  if(pgt_len > 32){
+    return -1;
+  }
+
+  for(int i = 0; i < pgt_len; i++, baseaddr += PGSIZE){
+    pte_t *pte = walk(cur_proc->pagetable, baseaddr, 0);
+    if((*pte) & PTE_A){
+      abits |= (1 << i);
+      printf("trig=%d\n", i);
+      *pte &= ~PTE_A;
+    }
+  }
+
+  rv = copyout(cur_proc->pagetable, abits_addr, (char*) &abits, sizeof(abits));
+  if(rv != 0){
+    printf("copyout failed.\n");
+    return -1;
+  }
   return 0;
 }
 #endif
