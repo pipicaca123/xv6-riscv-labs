@@ -215,7 +215,7 @@ proc_pagetable(struct proc *p)
 
   // map the proc. pid page just below TRAPFRAME page.
   if(mappages(pagetable, USYSCALL, PGSIZE, 
-              (uint64)(p->usyscall), PTE_R | PTE_W | PTE_U) < 0){
+              (uint64)(p->usyscall), PTE_R | PTE_U) < 0){
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
     uvmunmap(pagetable, TRAPFRAME, 1, 0);
     uvmfree(pagetable, 0);
