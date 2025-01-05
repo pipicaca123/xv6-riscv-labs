@@ -133,3 +133,23 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+// NOTE: reference the layout of this
+// https://pdos.csail.mit.edu/6.1810/2023/lec/l-riscv.txt
+void backtrace(void){
+  uint64 cur_fp_addr = r_fp();
+  uint64 sp_refer_page_addr = PGROUNDDOWN(cur_fp_addr);
+  
+  printf("backtrace:\n");
+
+  // memory allocated for each kernel stack consists of a single page-aligned page, 
+  // so that all the stack frames for a given stack are on the same page.
+  while(PGROUNDDOWN(cur_fp_addr) == sp_refer_page_addr){
+      uint64 ra_addr = cur_fp_addr - sizeof(uint64);
+      uint64 prev_fp_addr = cur_fp_addr - sizeof(uint64) * 2;
+      uint64 ra_val = *(uint64*) ra_addr;
+      cur_fp_addr = *(uint64*) prev_fp_addr;
+
+      printf("%p\n", ra_val);
+  }
+}
