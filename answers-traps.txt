@@ -20,3 +20,5 @@ Ans3: 0x0000000000000642
 Q4:What value is in the register ra just after the jalr to printf in main?
 Ans4:0x38，即是jalr指令的pc+4。
 
+
+TODO: Q5還未回答。
