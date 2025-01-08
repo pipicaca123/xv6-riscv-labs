@@ -503,3 +503,25 @@ sys_pipe(void)
   }
   return 0;
 }
+
+uint64 
+sys_sigalarm(void){
+  struct proc *p = myproc();
+  int ticks;
+  uint64 handler_ptr;
+  argint(0, (int*)&ticks);
+  argaddr(1, &handler_ptr);
+
+  p->alarm_interval = ticks;
+  p->alarm_handler = (void*)handler_ptr;
+  p->track_ticks = 0;
+  return 0;
+}
+
+uint64 
+sys_sigreturn(void){
+  struct proc *p = myproc();
+  memmove((void*) p->trapframe,(const void*) &p->trapframe_copy, sizeof(p->trapframe_copy));
+  // a0 reg is normally use for kernel return value, trace syscall.c syscall(void).
+  return p->trapframe->a0; 
+}

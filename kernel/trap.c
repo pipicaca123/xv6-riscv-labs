@@ -67,6 +67,17 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+    if(which_dev == 2){ // software interrupt from a machine-mode timer interrupt
+      if(p->track_ticks == 0 && p->alarm_handler == 0){
+        // bypass
+      }
+      else if(p->track_ticks % p->alarm_interval == 0){
+        // user space PC to handler, and make sure sys_return can retrieve the original status
+        memmove((void*)&p->trapframe_copy,(const void*)p->trapframe, sizeof(p->trapframe_copy));
+        p->trapframe->epc = (uint64) p->alarm_handler;
+      }
+      p->track_ticks++;
+    }
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -138,13 +149,14 @@ kerneltrap()
   uint64 sepc = r_sepc();
   uint64 sstatus = r_sstatus();
   uint64 scause = r_scause();
-  
+
   if((sstatus & SSTATUS_SPP) == 0)
     panic("kerneltrap: not from supervisor mode");
   if(intr_get() != 0)
     panic("kerneltrap: interrupts enabled");
 
   if((which_dev = devintr()) == 0){
+    backtrace();
     printf("scause %p\n", scause);
     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());
     panic("kerneltrap");
