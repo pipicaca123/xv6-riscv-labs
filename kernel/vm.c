@@ -449,3 +449,21 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+int uvm_cow_mapping(pagetable_t old, pagetable_t new, uint64 proc_sz){
+  pte_t *pte;
+  uint64 pa;
+  for(int i=0;i<proc_sz;i+=PGSIZE){
+    if((pte = walk(old, i, 0)) == 0)
+      panic("uvmcopy: pte should exist");
+    if((*pte & PTE_V) == 0)
+      panic("uvmcopy: page not present");
+    *pte &= (~PTE_W);
+    pa = PTE2PA(*pte);
+    if(mappages(new, i, PGSIZE, pa, PTE_FLAGS(*pte))){
+      panic("mappages failed!");
+    }
+  }
+
+  return 0;
+}
