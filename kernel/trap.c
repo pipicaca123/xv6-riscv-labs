@@ -68,6 +68,39 @@ usertrap(void)
   } else if((which_dev = devintr()) != 0){
     // ok
   } else {
+    if(r_scause() == 0x0F){
+      pte_t *pte = walk(p->pagetable, r_stval(), 0);
+      uint64 pa = PTE2PA(*pte);
+      if((*pte & PTE_V) == 0){
+        printf("page is not present!\n");
+      }else if((*pte & PTE_W) == 0){
+        *pte &= ~PTE_V; // clear original PTE flag to make sure mappages can do
+        char *mem;
+        if((mem = kalloc()) == 0){
+          printf("kalloc() failed\n");
+          goto USERTRAP_RET;
+        }
+        memmove(mem, (char*)pa, PGSIZE);
+        set_pg_count(pa, PG_REF_CNT_MINUS);
+        if(get_pg_count(pa) == 0){
+          // no one is using this page! free the page.
+          kfree((void*)pa);
+        }
+        
+        if(mappages(p->pagetable, PGROUNDDOWN(r_stval()), 
+                    PGSIZE, (uint64)mem, 
+                    PTE_FLAGS(*pte) | PTE_W) != 0){
+          printf("map pages failed!\n");
+          kfree(mem);
+          uvmunmap(p->pagetable, PGROUNDDOWN(r_stval()), 1, 1);
+          goto USERTRAP_RET;
+        }
+        goto USERTRAP_RET;
+      }else{
+        printf("not handle case!!\r\n");
+      }
+    }
+
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     setkilled(p);
@@ -79,7 +112,7 @@ usertrap(void)
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)
     yield();
-
+USERTRAP_RET:
   usertrapret();
 }
 

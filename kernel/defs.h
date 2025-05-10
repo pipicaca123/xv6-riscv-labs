@@ -64,6 +64,14 @@ void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
 
+enum PG_REF_CNT_OPERATION {
+  PG_REF_CNT_ADD = 0,
+  PG_REF_CNT_MINUS = 1,
+  PG_REF_CNT_ZERO = 2,
+};
+void set_pg_count(uint64, enum PG_REF_CNT_OPERATION);
+int get_pg_count(uint64);
+
 // log.c
 void            initlog(int, struct superblock*);
 void            log_write(struct buf*);
