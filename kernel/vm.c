@@ -455,11 +455,12 @@ int uvm_cow_mapping(pagetable_t old, pagetable_t new, uint64 proc_sz){
   uint64 pa;
   for(int i=0;i<proc_sz;i+=PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
+      panic("uvm_cow_mapping: pte should exist");
     if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+      panic("uvm_cow_mapping: page not present");
     *pte &= (~PTE_W);
     pa = PTE2PA(*pte);
+    set_pg_count(pa, PG_REF_CNT_ADD);
     if(mappages(new, i, PGSIZE, pa, PTE_FLAGS(*pte))){
       panic("mappages failed!");
     }
