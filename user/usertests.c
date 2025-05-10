@@ -73,6 +73,8 @@ copyin(char *s)
 
 // what if you pass ridiculous pointers to system calls
 // that write user memory with copyout?
+
+//FIXME: why my cow not work in this situation?
 void
 copyout(char *s)
 {
