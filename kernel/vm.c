@@ -366,9 +366,31 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(va0 >= MAXVA)
       return -1;
     pte = walk(pagetable, va0, 0);
-    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
-       (*pte & PTE_W) == 0)
+    uint64 pa = PTE2PA(*pte);
+    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0){
       return -1;
+    }else if((*pte & PTE_W) == 0){ // retrieve real status that been modified by COW.
+      *pte &= ~PTE_V; // clear original PTE flag to make sure mappages can do
+      char *mem;
+      if((mem = kalloc()) == 0){
+        printf("kalloc() failed\n");
+        return -1;
+      }
+      memmove(mem, (char*)pa, PGSIZE);
+      set_pg_count(pa, PG_REF_CNT_MINUS);
+      if(get_pg_count(pa) == 0){
+        // no one is using this page! free the page.
+        kfree((void*)pa);
+      }
+      if(mappages(pagetable, PGROUNDDOWN(dstva), 
+                  PGSIZE, (uint64)mem, 
+                  PTE_FLAGS(*pte) | PTE_W) != 0){
+        printf("map pages failed!\n");
+        kfree(mem);
+        uvmunmap(pagetable, PGROUNDDOWN(dstva), 1, 1);
+        return -1;
+      }
+    }
     pa0 = PTE2PA(*pte);
     n = PGSIZE - (dstva - va0);
     if(n > len)
