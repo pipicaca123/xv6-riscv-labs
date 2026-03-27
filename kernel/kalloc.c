@@ -122,7 +122,7 @@ kalloc(void)
     memset((char*)r, 5, PGSIZE); // fill with junk
   }
   else{
-    printf("kalloc: allocate failed!\n");
+    // printf("kalloc: allocate failed!\n");
   }
   return (void*)r;
 }
