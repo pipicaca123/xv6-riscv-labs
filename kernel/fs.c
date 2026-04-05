@@ -383,26 +383,28 @@ static uint
 bmap(struct inode *ip, uint bn)
 {
   uint addr, *a;
-  struct buf *bp;
+  struct buf *bp, *bp_doub;
 
-  if(bn < NDIRECT){
+  if(bn < NSINGINDIRECT_ID){
     if((addr = ip->addrs[bn]) == 0){
       addr = balloc(ip->dev);
-      if(addr == 0)
+      if(addr == 0){
         return 0;
+      }
       ip->addrs[bn] = addr;
     }
     return addr;
   }
-  bn -= NDIRECT;
+  bn -= NSINGINDIRECT_ID;
 
   if(bn < NINDIRECT){
     // Load indirect block, allocating if necessary.
-    if((addr = ip->addrs[NDIRECT]) == 0){
+    if((addr = ip->addrs[NSINGINDIRECT_ID]) == 0){
       addr = balloc(ip->dev);
-      if(addr == 0)
+      if(addr == 0){
         return 0;
-      ip->addrs[NDIRECT] = addr;
+      }
+      ip->addrs[NSINGINDIRECT_ID] = addr;
     }
     bp = bread(ip->dev, addr);
     a = (uint*)bp->data;
@@ -417,6 +419,48 @@ bmap(struct inode *ip, uint bn)
     return addr;
   }
 
+  bn -= NINDIRECT;
+  if(bn < NDOUBINDIRECT){
+    if((addr = ip->addrs[NDOUBINDIRECT_ID]) == 0){
+      addr = balloc(ip->dev);
+      if(addr == 0){
+        return 0;
+      }
+      ip->addrs[NDOUBINDIRECT_ID] = addr;
+    }
+    bp = bread(ip->dev, addr);
+    a = (uint*)bp->data;
+    if((addr = a[NDOUBINDIRECT_LAYER1_ID(bn)]) == 0){
+      addr = balloc(ip->dev);
+      if(addr){
+        a[NDOUBINDIRECT_LAYER1_ID(bn)] = addr;
+        log_write(bp);
+      }else{
+        printf("bmap: double indirect - layer1 balloc failed\n");
+        brelse(bp);
+        return addr;
+      }
+    }
+
+    bp_doub = bread(ip->dev, addr);
+    a = (uint*)bp_doub->data;
+    if((addr = a[NDOUBINDIRECT_LAYER2_ID(bn)]) == 0){
+      addr = balloc(ip->dev);
+      if(addr){
+        a[NDOUBINDIRECT_LAYER2_ID(bn)] = addr;
+        log_write(bp_doub);
+      }else{
+        printf("bmap: double indirect - layer2 balloc failed\n");
+        brelse(bp);
+        brelse(bp_doub);
+        return addr;
+      }
+    }
+    brelse(bp);
+    brelse(bp_doub);
+    return addr;
+  }
+
   panic("bmap: out of range");
 }
 
@@ -427,25 +471,49 @@ itrunc(struct inode *ip)
 {
   int i, j;
   struct buf *bp;
-  uint *a;
+  struct buf *bp_doub;
+  uint *a, *a_doub;
 
-  for(i = 0; i < NDIRECT; i++){
+  for(i = 0; i < NSINGINDIRECT_ID; i++){
     if(ip->addrs[i]){
       bfree(ip->dev, ip->addrs[i]);
       ip->addrs[i] = 0;
     }
   }
 
-  if(ip->addrs[NDIRECT]){
-    bp = bread(ip->dev, ip->addrs[NDIRECT]);
+  if(ip->addrs[NSINGINDIRECT_ID]){
+    bp = bread(ip->dev, ip->addrs[NSINGINDIRECT_ID]);
     a = (uint*)bp->data;
     for(j = 0; j < NINDIRECT; j++){
       if(a[j])
         bfree(ip->dev, a[j]);
     }
     brelse(bp);
-    bfree(ip->dev, ip->addrs[NDIRECT]);
-    ip->addrs[NDIRECT] = 0;
+    bfree(ip->dev, ip->addrs[NSINGINDIRECT_ID]);
+    ip->addrs[NSINGINDIRECT_ID] = 0;
+  }
+
+  if(ip->addrs[NDOUBINDIRECT_ID]){
+    bp = bread(ip->dev, ip->addrs[NDOUBINDIRECT_ID]);
+    a = (uint*)bp->data;
+    for(int a_idx=0; a_idx<NINDIRECT; a_idx++){
+      if(a[a_idx]){
+        bp_doub = bread(ip->dev, a[a_idx]);
+        a_doub = (uint*)bp_doub->data;
+        for(int ad_idx=0; ad_idx<NINDIRECT; ad_idx++){
+          if(a_doub[ad_idx]){
+            bfree(ip->dev, a_doub[ad_idx]);
+          }
+        }
+        brelse(bp_doub);
+        bfree(ip->dev, a[a_idx]);
+        a[a_idx] = 0;
+      }
+    }
+    brelse(bp);
+    bfree(ip->dev, ip->addrs[NDOUBINDIRECT_ID]);
+    ip->addrs[NDOUBINDIRECT_ID] = 0;
+
   }
 
   ip->size = 0;
