@@ -93,6 +93,8 @@ filestat(struct file *f, uint64 addr)
   if(f->type == FD_INODE || f->type == FD_DEVICE){
     ilock(f->ip);
     stati(f->ip, &st);
+    if (strlen(f->symlink) > 0)
+      st.type = T_SYMLINK;
     iunlock(f->ip);
     if(copyout(p->pagetable, addr, (char *)&st, sizeof(st)) < 0)
       return -1;

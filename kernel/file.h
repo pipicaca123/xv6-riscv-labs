@@ -1,3 +1,4 @@
+#include "param.h"
 struct file {
   enum { FD_NONE, FD_PIPE, FD_INODE, FD_DEVICE } type;
   int ref; // reference count
@@ -7,6 +8,7 @@ struct file {
   struct inode *ip;  // FD_INODE and FD_DEVICE
   uint off;          // FD_INODE
   short major;       // FD_DEVICE
+  char symlink[MAXPATH];
 };
 
 #define major(dev)  ((dev) >> 16 & 0xFFFF)
@@ -38,3 +40,9 @@ struct devsw {
 extern struct devsw devsw[];
 
 #define CONSOLE 1
+
+struct symlink_t {
+  char path[MAXPATH];
+  char target[MAXPATH];
+  uint enable;
+};

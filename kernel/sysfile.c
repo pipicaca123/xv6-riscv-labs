@@ -16,6 +16,8 @@
 #include "file.h"
 #include "fcntl.h"
 
+// smylink global
+struct symlink_t symlink_storage[MAXSYMLINK] = {0};
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -301,6 +303,16 @@ create(char *path, short type, short major, short minor)
   return 0;
 }
 
+uint is_symlink_file(char *path) {
+  for (int i = 0; i < MAXSYMLINK; i++) {
+    struct symlink_t *symlink = &symlink_storage[i];
+    if (symlink->enable == 1 &&
+        memcmp(symlink->path, path, strlen(path)) == 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
 uint64
 sys_open(void)
 {
@@ -315,6 +327,22 @@ sys_open(void)
     return -1;
 
   begin_op();
+
+  for (int i = 0, n = 0; i < MAXSYMLINK; i++) {
+    struct symlink_t *symlink = &symlink_storage[i];
+    if (symlink->enable == 1 &&
+        memcmp(symlink->path, path, strlen(path)) == 0) {
+      // remap filename
+      safestrcpy(path, symlink->target, sizeof(path));
+      // printf("try to symlink-target:%s\n", path);
+      if (is_symlink_file(path) && n++ < 10)
+        continue; // target is still symlink, recursive to find true file. if
+                  // search over 10 times still not find, return
+                  // symlink_filename will return open failed, this is within.
+                  // expectation.
+      break;
+    }
+  }
 
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
@@ -363,7 +391,9 @@ sys_open(void)
   if((omode & O_TRUNC) && ip->type == T_FILE){
     itrunc(ip);
   }
-
+  if (omode & O_NOFOLLOW) {
+    safestrcpy(f->symlink, path, sizeof(path));
+  }
   iunlock(ip);
   end_op();
 
@@ -499,6 +529,32 @@ sys_pipe(void)
     p->ofile[fd1] = 0;
     fileclose(rf);
     fileclose(wf);
+    return -1;
+  }
+  return 0;
+}
+
+uint64 sys_symlink(void) {
+  char target[MAXPATH], path[MAXPATH];
+  int n;
+  int i;
+
+  if ((n = argstr(0, target, MAXPATH)) < 0)
+    return -1;
+  if ((n = argstr(1, path, MAXPATH)) < 0)
+    return -1;
+
+  // TODO: avoid re-register
+  for (i = 0; i < MAXSYMLINK; i++) {
+    if (symlink_storage[i].enable == 0) {
+      safestrcpy(symlink_storage[i].target, target, sizeof(target));
+      safestrcpy(symlink_storage[i].path, path, sizeof(path));
+      symlink_storage[i].enable = 1;
+      break;
+    }
+  }
+  if (i == MAXSYMLINK) {
+    printf("symlink: register failed\n");
     return -1;
   }
   return 0;
